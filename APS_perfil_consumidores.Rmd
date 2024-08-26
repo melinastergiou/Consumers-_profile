@@ -1,0 +1,540 @@
+---
+title: "Perfil_Consumidores"
+output:
+html_document: default
+date: "2024-05-07"
+---
+
+#### Projeto de: Ana Surian, Giovanni D'Ottaviano, Melina Stergiou e Sophia Magalhães
+
+## Objetivo e Introdução
+
+Esta análise tem como objetivo principal encontrar o cliente perfeito para uma empresa. Por meio dos dados presentes na base, dividiu-se a análise em 3 blocos:\
+
+#### Bloco 1
+
+O escopo deste bloco é encontrar a persona mais presente na base de dados. Para isso, cruzou-se algumas variáveis descritivas com os usuários da base (IDs).\
+
+#### Bloco 2
+
+O escopo deste bloco é encontrar a persona que mais gera valor à empresa. Para isso, encontra-se a persona que mais consome em quantidade de produtos, sendo admitido que esse tipo de pessoa gera maior valor à empresa.\
+
+#### Bloco 3
+
+O escopo deste bloco é analisar a estratégia de captar clientes da empresa. A ideia é sugerir melhorias na estratégia para atingir ao máximo o cliente que mais gera valor encontrado no 2° bloco.\
+
+## Organization and Data Manipulation
+
+```{r warning=FALSE, warnings=FALSE}
+library(tidyverse)
+library(readr)
+library(dbplyr)
+library(forcats)
+library(ggplot2)
+library(ggtext)
+library(ggdist)
+library(glue)
+library(patchwork)
+library(hrbrthemes)
+library(viridis)
+library(MetBrewer)
+
+
+df = readxl::read_excel("marketing_campaign.xlsx")
+base = data.frame(df)
+#base= marketing_campaign
+#View(base)
+
+```
+
+#### Changing variable's names
+
+(name before --\> name after)
+
+#### General Info
+
+ID: Customer's unique identifier\
+Year_Birth: Customer's birth year\
+Education: Customer's education level\
+Marital_Status: Customer's marital status\
+Income: Customer's yearly household income\
+Kidhome: Number of children in customer's household\
+Teenhome: Number of teenagers in customer's household\
+Dt_Customer: Date of customer's enrollment with the company\
+Recency: Number of days since customer's last purchase\
+Complain: 1 if the customer complained in the last 2 years, 0 otherwise\
+
+#### Products
+
+MntWines --\> Wines: Amount spent on wine in last 2 years\
+MntFruits --\> Fruits: Amount spent on fruits in last 2 years\
+MntMeatProducts --\> Meat_products: Amount spent on meat in last 2 years\
+MntFishProducts --\> Fish_products: Amount spent on fish in last 2 years\
+MntSweetProducts --\> Sweet_products: Amount spent on sweets in last 2 years\
+MntGoldProds --\> Gold: Amount spent on gold in last 2 years\
+
+#### Promotion
+
+NumDealsPurchases --\> Discount_purchases: Number of purchases made with a discount\
+AcceptedCmp1 --\> First_discount: 1 if customer accepted the offer in the 1st campaign, 0 otherwise\
+AcceptedCmp2 --\> Second_discount: 1 if customer accepted the offer in the 2nd campaign, 0 otherwise\
+AcceptedCmp3 --\> Third_discount: 1 if customer accepted the offer in the 3rd campaign, 0 otherwise\
+AcceptedCmp4 --\> Fourth_discount: 1 if customer accepted the offer in the 4th campaign, 0 otherwise\
+AcceptedCmp5 --\> Fifth_discount: 1 if customer accepted the offer in the 5th campaign, 0 otherwise\
+Response: 1 if customer accepted the offer in the last campaign, 0 otherwise\
+
+#### Place
+
+NumWebPurchases --\> Web_Purchases: Number of purchases made through the company’s website\
+NumCatalogPurchases --\> Catalog_Purchases: Number of purchases made using a catalogue\
+NumStorePurchases --\> Store_Purchases: Number of purchases made directly in stores\
+NumWebVisitsMonth --\> Website_visits: Number of visits to company’s website in the last month\
+
+```{r}
+
+database = base |> rename(Wines=MntWines,Fruits=MntFruits,Meat_products=MntMeatProducts,Fish_products=MntFishProducts,Sweet_products=MntSweetProducts,Gold=MntGoldProds,Discount_purchases=NumDealsPurchases,First_discount=AcceptedCmp1,Second_discount=AcceptedCmp2,Third_discount=AcceptedCmp3,Fourth_discount=AcceptedCmp4,Fith_discount=AcceptedCmp5,Last_discount=Response,Web_purchases=NumWebPurchases,Catalog_purchases=NumCatalogPurchases,Store_purchases=NumStorePurchases,Website_visits=NumWebVisitsMonth)  
+#view(database)
+
+
+database <- database|> filter(!is.na(Fish_products),!is.na(Wines), !is.na(Meat_products), !is.na(Fruits), !is.na(Sweet_products), !is.na(Gold),!is.na(ID),!is.na(Income),!is.na(Year_Birth),!is.na(Education),!is.na(Marital_Status),!is.na(Income),!is.na(Kidhome),!is.na(Teenhome),!is.na(Dt_Customer),!is.na(Recency),!is.na(Discount_purchases),!is.na(Web_purchases),!is.na(Store_purchases),!is.na(Catalog_purchases),!is.na(Website_visits),!is.na(Third_discount),!is.na(ID),!is.na(Fourth_discount),!is.na(Fith_discount),!is.na(First_discount),!is.na(Second_discount),!is.na(Complain),!is.na(Z_CostContact),!is.na(Z_Revenue),!is.na(Last_discount))
+
+```
+
+## BLOCO 1: Qual o perfil do consumidor que mais aparece na base?
+
+```{r}
+theme_set (theme_bw())
+
+database |> count(Education, name="Number") |> mutate(Education = fct_reorder(Education,Number)) |> ggplot(aes(Education, Number, fill=Education)) + geom_col() + labs(x="Level of Education", y="Number of IDs", title="Consumers Level of Education") + scale_fill_viridis(discrete=TRUE)
+
+
+```
+
+```{r}
+theme_set (theme_bw())
+
+database$Year_Dt= as.numeric(format(database$Dt_Customer, "%Y"))
+
+database |> mutate(Age = Year_Dt-Year_Birth) |> select(-Year_Dt) |>  mutate(Age_group = case_when(Age<=19 ~"0-19", Age>19 & Age<=29 ~"20-29", Age>29 & Age<=39 ~"30-39", Age>39 & Age<=49~"40-49", Age>49 & Age<=59 ~"50-59", Age>59 & Age<=69 ~"60-69", Age>69 ~">=70"), Age_group=factor(Age_group, level=c("0-19","20-29","30-39","40-49","50-59","60-69", ">=70"))) |> relocate(Age_group, .before=Year_Birth) |> count(Age_group, name="Number") |> ggplot(aes(Age_group, Number, fill=Age_group)) + geom_col() + labs(x="Age groups", y="Number of IDs", title="Consumers' Age - Histogram") + scale_fill_viridis(discrete=TRUE)
+
+
+```
+
+```{r}
+theme_set (theme_bw())
+
+
+database  |> count(Marital_Status, name="Number")|>  mutate(Marital_Status = fct_reorder(Marital_Status,Number)) |> ggplot(aes(Number, Marital_Status)) + geom_point(color="navy", size=6, alpha=1) + geom_segment(aes(xend=0), color="navy") + labs(x="MNumber of IDs", y="Marital Status", title="Consumers' Marital Status")
+
+```
+
+```{r}
+
+theme_set(theme_bw())
+
+database$Income[database$Income=="NA"] <- NA
+
+database |> mutate(Income_group = case_when(Income<=15000 ~"0-15", Income>15000 & Income<=20000 ~"15-20", Income>20000 & Income<=30000~"20-30", Income>30000 & Income<=50000 ~"30-50", Income>50000 & Income<=60000 ~"50-60", Income>60000 & Income<80000 ~"60-80", Income>80000 ~">80"), Income_group=factor(Income_group,level=c("0-15","15-20","20-30", "30-50","50-60", "60-80", ">80")))|> count(Income_group, name="Number") |> ggplot(aes(Income_group, Number, fill=Income_group)) + geom_col(show.legend = FALSE) + labs(x="Income Group ($k)", y="Number of IDs", title="Consumers' Income") + scale_fill_viridis(discrete=TRUE)
+
+
+```
+
+\
+
+#### CLIENTE MAIS ENCONTRADO NA BASE:
+
+-   Nível educacional: Graduado\
+-   Faixa de idade: 40-49 anos\
+-   Estado Civil: Casado\
+-   Renda: \$30.000-\$50.000\
+
+## BLOCO 2: Qual o perfil do consumidor que mais consome em quantidades?
+
+```{r}
+
+database$Dt_Customer <- as.Date(database$Dt_Customer, "%Y-%m-%d")
+database$Year_Purchase <- format(database$Dt_Customer, "%Y")
+
+
+database$Age <- as.numeric(database$Year_Purchase) - database$Year_Birth
+
+
+database$Age_Group <- cut(database$Age, breaks=c(0, 20, 30, 40, 50, 60, 70, Inf),
+                          right=FALSE,
+                          labels=c("0-19", "20-29", "30-39", "40-49", "50-59", "60-69", ">=70"))
+
+dados_long <- database |>
+  select(Age_Group, Wines, Fruits, Meat_products, Fish_products, Sweet_products, Gold) %>%
+  pivot_longer(cols = -Age_Group, names_to = "Product", values_to = "Quantity")
+
+# Plot
+ggplot(dados_long, aes(x = Age_Group, y = Quantity, fill = Product)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  labs(x = "Age Group", y = "Quantity Purchased", title = "Product Purchases by Age Group") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+scale_fill_viridis(discrete=TRUE)
+
+```
+
+```{r warning=FALSE}
+
+#Criando uma coluna com os produtos mais comprados por indivíduo
+produtos <- data.frame(
+  Wine = database$Wines,
+  Fruits = database$Fruits,
+  Meat = database$Meat_products,
+  Fish = database$Fish_products,
+  Sweet = database$Sweet_products,
+  Gold = database$Gold)
+
+product_most_bought <- character(nrow(produtos))
+
+for (i in 1:nrow(produtos)) {
+  indice_maior <- which.max(produtos[i,])
+  product_most_bought[i] <- names(produtos)[indice_maior]
+}
+database$product_most_bought <- product_most_bought
+
+
+#Criando coluna com IDADE
+database$Year_Dt <- as.numeric(format(database$Dt_Customer, "%Y"))
+database$Age <- (Age = database$Year_Dt-database$Year_Birth)
+
+#estatísticas descritivas de Idade
+mean_age <- mean(database$Age, na.rm = TRUE)
+median_age <- median(database$Age, na.rm = TRUE)
+n_individuals <- nrow(subset(database, !is.na(Age)))
+
+
+#Criando gráfico 
+
+bg_color <- "grey97"
+font_family <- "Fira Sans"
+ 
+plot_subtitle = glue("The impact of buyers' age on the type of products they most bought. The survey agroups the main characteristics of {scales::number(n_individuals, big.mark = ',')} consumers of a website")
+
+database |> ggplot((aes(product_most_bought, Age))) +
+  stat_halfeye(fill_type = "segments", alpha = 0.3) +
+  stat_interval() +
+  stat_summary(geom = "point", fun = median) +
+  geom_hline(yintercept = median_age, col = "grey30", lty = "dashed") +
+  annotate("text", x = 8, y = median_age -15, label = "Median Age",
+           family = "Fira Sans", size = 3, hjust = 0) +
+  scale_x_discrete(labels = toupper) +
+  scale_color_manual(values = MetBrewer::met.brewer("VanGogh1")) + coord_flip(ylim = c(0, 121), clip = "off") +
+  guides(col = "none") +
+  labs(
+    title = toupper("Does Age Impact on costumers' purchases?"),
+    subtitle = plot_subtitle,
+    x = NULL,
+    y = "Age"
+  ) +
+  theme_minimal(base_family = font_family) +
+  theme(
+    plot.background = element_rect(color = NA, fill = bg_color),
+    panel.grid = element_blank(),
+    panel.grid.major.x = element_line(linewidth = 0.1, color = "grey75"),
+    plot.title = element_text(family = "Fira Sans SemiBold"),
+    plot.title.position = "plot",
+    plot.subtitle = element_textbox_simple(
+      margin = margin(t = 4, b = 16), size = 10),
+    plot.caption = element_textbox_simple(
+      margin = margin(t = 12), size = 4
+    ),
+    plot.caption.position = "plot",
+    axis.text.y = element_text(hjust = 0, margin = margin(r = -10), family = "Fira Sans SemiBold"),
+    plot.margin = margin(4, 4, 4, 4))
+```
+
+Observação:\
+Nota-se a partir do gráfico que todos os produtos estão concentrados em vendas de faixa de 30 à 40 anos. No entanto, o "wine" é o produto mais disperso entre as faixas de idades. 
+
+```{r}
+# Filtrando para a faixa etária de 40 a 49 anos
+dados_40_49 <- database |>
+  filter(Age >= 40 & Age <= 49)
+
+# Agrupando por nível educacional e contar o número de indivíduos
+education_counts <- dados_40_49 |>
+  group_by(Education) |>
+  summarise(Count = n())
+
+# Criando um gráfico de pizza para mostrar a divisão do nível educacional
+ggplot(education_counts, aes(x = "", y = Count, fill = Education)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar(theta = "y") + # Transformar em gráfico de pizza
+  labs(fill = "Education Level", title = "Education Level Distribution (Ages 40-49)") +
+  theme_void() + scale_fill_viridis(discrete=TRUE)
+
+#Conclusão: dos que mais compram (40-50 anos), a maioria tem até o ensino superior completo
+```
+
+```{r}
+dados_filtered <- database |>
+  filter(Age >= 40 & Age <= 49, Education == "Graduation")
+
+# Selecionando colunas relevantes e renomear conforme mudanças prévias
+dados_relevant <- dados_filtered |>
+  select(Marital_Status, Wines, Fruits, Meat_products, Fish_products, Sweet_products, Gold)
+
+data_long <- pivot_longer(dados_relevant, 
+                           cols = c(Wines, Fruits, Meat_products, Fish_products, Sweet_products, Gold),
+                           names_to = "Product", 
+                           values_to = "Quantity")
+
+# Agrupando por estado civil e produto, somando as quantidades
+dados_grouped <- data_long |>
+  group_by(Marital_Status, Product) |>
+  summarise(Total_Quantity = sum(Quantity))
+
+
+ggplot(dados_grouped, aes(x = Marital_Status, y = Total_Quantity, fill = Product)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  labs(x = "Marital Status", y = "Total Quantity Purchased", 
+       title = "Product Purchases by Marital Status for Graduates Aged 40-49") +
+  theme_minimal() +
+  scale_fill_viridis(discrete=TRUE)
+
+#Conclusão: Dos filtros, quem mais compra são os casados, e compram vinho
+```
+
+```{r}
+
+# Filtrando para a faixa etária de 40 a 49 anos, nível educacional 'Graduation' e estado civil 'Married'
+dados1_filtered <- database |>
+  filter(Age >= 40 & Age <= 49, Education == "Graduation", Marital_Status == "Married")
+
+# Criando faixas de renda
+breaks <- c(0, 15000, 20000, 30000, 50000, 60000, 80000, Inf)
+labels <- c("0-15", "15-20", "20-30", "30-50", "50-60", "60-80", ">=80")
+
+dados1_filtered$Income_Group <- cut(dados1_filtered$Income,
+                                   breaks = breaks,
+                                   include.lowest = TRUE,
+                                   labels = labels)
+
+
+dados1_relevant <- dados1_filtered |>
+  select(Income_Group, Wines, Fruits, Meat_products, Fish_products, Sweet_products, Gold)
+
+dados1_long <- pivot_longer(dados1_relevant, 
+                           cols = c(Wines, Fruits, Meat_products, Fish_products, Sweet_products, Gold),
+                           names_to = "Product", 
+                           values_to = "Quantity")
+
+# Agrupando por faixa de renda e produto, somando as quantidades
+dados1_grouped <- dados1_long |>
+  group_by(Income_Group, Product) |>
+  summarise(Total_Quantity = sum(Quantity))
+
+
+ggplot(dados1_grouped, aes(x = Income_Group, y = Total_Quantity, fill = Product)) +
+  geom_bar(stat = "identity", position = "stack") +
+  labs(x = "Income Group ($k)", y = "Total Quantity Purchased", 
+       title = "Product Purchases by Income Group for Married Graduates Aged 40-49") +
+  theme_minimal() +
+  scale_fill_viridis(discrete=TRUE)
+
+#Conclusão: quem mais compra é da faixa de renda 60.000-80.000, vinho
+```
+
+```{r}
+# Filtrando os dados
+dados2_filtered <- database |>
+  filter(Age >= 40 & Age <= 49, 
+         Education == "Graduation", 
+         Marital_Status == "Married", 
+         Income >= 60000 & Income <= 80000,
+         Wines > 0)  # Apenas os que compram vinho
+
+
+purchase_methods <- dados2_filtered |>
+  select(Web_purchases, Catalog_purchases, Store_purchases) |>
+  summarise_all(sum)  # Somar todas as compras
+
+
+purchase_data <- as.data.frame(t(purchase_methods))
+colnames(purchase_data) <- c("Total")
+purchase_data$Method <- rownames(purchase_data)
+
+# Criando o gráfico de pizza
+ggplot(purchase_data, aes(x = "", y = Total, fill = Method)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar(theta = "y") +
+  labs(fill = "Purchase Method", 
+       title = "Wine Purchase Methods by married graduates aged 40-49 with Income $60-80K") +
+  theme_void() + scale_fill_viridis(discrete=TRUE)
+```
+
+\
+
+#### CLIENTE QUE MAIS COMPRA NA BASE:
+
+-   Nível educacional: Graduado\
+-   Faixa de idade: 40-49 anos\
+-   Estado Civil: Casado\
+-   Renda: \$60.000-\$80.000\
+-   Principal produto comprado: Vinho\
+-   Principal canal de compra: Lojas presenciais\
+
+## BLOCO 3: Analisando a estratégia de venda da companhia
+
+```{r warning=FALSE}
+#Criando uma coluna com os produtos mais comprados e veículo de compra principal por indivíduo
+
+produtos <- data.frame(
+  Wine = database$Wines,
+  Fruits = database$Fruits,
+  Meat = database$Meat_products,
+  Fish = database$Fish_products,
+  Sweat = database$Sweet_products,
+  Gold = database$Gold)
+
+canal <- data.frame(
+  Web = database$Web_purchases,
+  Catalog = database$Catalog_purchases,
+  Store = database$Store)
+
+
+#Produto mais comprado
+
+product_most_bought <- character(nrow(produtos))
+
+for (i in 1:nrow(produtos)) {
+  indice_maior <- which.max(produtos[i,])
+  product_most_bought[i] <- names(produtos)[indice_maior]
+}
+database$product_most_bought <- product_most_bought
+
+#Quantidade do Produto mais Comprado
+
+
+quantity_of_product_most_bought <- character(nrow(produtos))
+
+for (i in 1:nrow(produtos)) {
+  indice_maior <- which.max(produtos[i,])
+  quantity_of_product_most_bought[i] <-(produtos)[i,indice_maior]}
+
+database$quantity_of_product_most_bought <- as.numeric(quantity_of_product_most_bought)
+
+#Canal de compra mais utilizado
+
+channel_most_used <- character(nrow(canal))
+
+for (i in 1:nrow(canal)) {
+  indice_maior <- which.max(canal[i,])
+  channel_most_used[i] <- names(canal)[indice_maior]}
+
+database$channel_most_used <- channel_most_used
+
+
+base01= database |> select(product_most_bought,quantity_of_product_most_bought,channel_most_used)
+
+
+#estatísticas descritivas de quantidade
+mean_qnt <- mean(base01$quantity_of_product_most_bought)
+median_qnt <- median(base01$quantity_of_product_most_bought)
+
+n_individuals <- nrow(subset(base01))
+
+#Criando gráfico
+
+bg_color <- "grey97"
+font_family <- "Fira Sans"
+
+plot_subtitle = glue("The main sales channel impact on the quantity bought by costumers. The survey agroups the main characteristics of {scales::number(n_individuals, big.mark = ',')} costumers of a website")
+
+database |> ggplot((aes(channel_most_used, quantity_of_product_most_bought))) +
+  stat_halfeye(fill_type = "segments", alpha = 0.3) +
+  stat_interval() +
+  stat_summary(geom = "point", fun = median) +
+  geom_hline(yintercept = median_qnt, col = "grey30", lty = "dashed") +
+  annotate("text", x = 4, y = median_qnt -15, label = "Median Ammount Bought",
+           family = "Fira Sans", size = 3, hjust = 0) +
+  scale_x_discrete(labels = toupper) +
+  scale_color_manual(values = MetBrewer::met.brewer("VanGogh1")) + coord_flip(ylim = c(0, 1500), clip = "off") +
+  guides(col = "none") +
+  labs(
+    title = toupper("Does Sales Channel impact on costumers' apetite? "),
+    subtitle = plot_subtitle,
+    x = NULL,
+    y = "Quantidade"
+  ) +
+  theme_minimal(base_family = font_family) +
+  theme(
+    plot.background = element_rect(color = NA, fill = bg_color),
+    panel.grid = element_blank(),
+    panel.grid.major.x = element_line(linewidth = 0.1, color = "grey75"),
+    plot.title = element_text(family = "Fira Sans SemiBold"),
+    plot.title.position = "plot",
+    plot.subtitle = element_textbox_simple(
+      margin = margin(t = 4, b = 16), size = 10),
+    plot.caption = element_textbox_simple(
+      margin = margin(t = 12), size = 2
+    ),
+    plot.caption.position = "plot",
+    axis.text.y = element_text(hjust = 0, margin = margin(r = -15), family = "Fira Sans SemiBold"),
+    plot.margin = margin(4, 4, 4, 4))
+```
+
+\
+
+#### Conclusão
+
+As vendas de "store" estão mais concentradas em valores menores, do que as vendas por "catalog" ou "web". No entanto, as vendas de "catalog" estão muito dispersas quando comparadas com "web". Assim, podemos inferir que "catalog" não deve ser o principal canal de vendas.\
+
+```{r warning=FALSE}
+
+
+database |> ggplot(aes(x=quantity_of_product_most_bought, y=Income, size=quantity_of_product_most_bought, fill=channel_most_used)) +
+    geom_point(alpha=0.5, shape=21, color="black") +
+    scale_size(range = c(.1, 24), name="Amount of products") + xlab("Amount bought") + ylab("Income") + labs(title = "Channel Most Used X Income")+ theme(legend.position = "right") + scale_fill_viridis(direction=-1,discrete=TRUE) +ylim(c(20000,1.3*mean(database$Income))) + xlim(c(100,1.3*mean(database$quantity_of_product_most_bought)))
+
+
+
+```
+
+\
+
+#### Conclusão:
+
+A partir do gráfico é notável a maior presença de canais de compra em "web" e "store". Sendo assim, concretiza-se a conclusão do gráfico anterior de que "catalog" não é o principal canal de vendas, sendo, pois, dispensável para a empresa.\
+
+```{r warning=FALSE}
+
+
+database |> select (Web_purchases, Website_visits, Discount_purchases, ID) |>  ggplot(aes(x=Web_purchases)) + geom_density( aes(x = Web_purchases, y = ..density..), fill="#69b3a2" ) + geom_label( aes(x=3, y=0.25, label="Web Purchases"), color="#69b3a2")+ geom_density( aes(x = Website_visits, y = -..density..), fill= "#404080") +  geom_label( aes(x=3, y=-0.25, label="Website Visits"), color="#404080") + theme_ipsum() + xlab("Number of interactions")+ ylab("Density") + labs(title = "Web Purchases and Website Visits Analysis")
+
+```
+
+\
+
+#### Conclusão:
+
+O gráfico mostra que há mais visitas ao site do que compras, sendo assim é necessário que a empresa foque em converter os visitantes do seu site em compradores mais frequentes.\
+
+```{r}
+
+database|> select (Web_purchases, Website_visits, Discount_purchases, ID) |> ggplot(aes(x=Web_purchases, y=Website_visits)) +
+    geom_point(alpha=4, color="darkblue", size=4) +
+    scale_size(range = c(15, 24)) + labs(title="Correlation between Website visits and Website purchases")
+
+
+```
+
+\
+
+#### Conclusão:
+
+O gráfico mostra que não há correlação entre o n° de visitas no site e o n° de compras. Vale ressaltar que talvez haja um erro na base de dados em que existem pessoas que compraram pelo o website mas nunca o visitaram.\
+\
+
+## Conclusão Final da Análise
+
+\
+Quando analisamos a persona que mais aparece na base e a persona que mais consome fica claro que a única diferença entre elas é a faixa de renda. Desta forma, a empresa deve focar seu esforço de vendas na faixa de renda entre \$60.000-\$80.000.\
+Outra conclusão importante feita a partir da análise do bloco 3 é que a empresa deve deixar de ofertar por catálogo uma vez que os volumes de venda são pequenos e dispersos. Além disso, a persona que mais consome utiliza o meio presencial em loja para realizar suas compras, sendo necessário melhorar o marketing de vendas em lojas físicas. Ademais, percebe-se uma necessidade de melhorar a conversão de visualizações do site em vendas pelo canal.
+
+## Fontes: 
+
+https://r-graph-gallery.com/index.html
